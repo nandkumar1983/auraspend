@@ -1,0 +1,6 @@
+{
+  "name": "AuraSpend - Android Expense Tracker & Bank Sync",
+  "description": "Android mobile expense and budget tracker with real-time budget monitoring, automated monthly category reports, daily credit/debit bank syncing, and cloud storage backup.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" style="background-color: #0b0f19; color: #f8fafc;">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>AuraSpend - Android Expense Tracker & Bank Sync</title>
+    <meta name="description" content="Android mobile expense and budget tracker with real-time budget monitoring, automated monthly category reports, daily credit/debit bank syncing, and cloud storage backup." />
+    <meta property="og:title" content="AuraSpend - Android Expense Tracker & Bank Sync" />
+    <meta property="og:description" content="Android mobile expense and budget tracker with real-time budget monitoring, automated monthly category reports, daily credit/debit bank syncing, and cloud storage backup." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0b0f19" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/pwa-512x512.png" />
+
+    <style>
+      @keyframes vivoPulse {
+        0%, 100% { opacity: 0.4; transform: scale(0.98); }
+        50% { opacity: 1; transform: scale(1.02); }
+      }
+    </style>
+  </head>
+  <body style="background-color: #0b0f19; color: #f8fafc; margin: 0; padding: 0; min-height: 100vh;" class="bg-slate-950 text-slate-100 antialiased selection:bg-blue-600 selection:text-white overflow-x-hidden font-sans">
+    <div id="root" style="min-height: 100vh; background-color: #0b0f19;">
+      <!-- Vivo X300 Pro Branded Instant Splash/Loader to prevent any white blank screen -->
+      <div id="auraspend-splash" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; width: 100%; text-align: center; padding: 24px; box-sizing: border-box; background: #0b0f19;">
+        <div style="width: 72px; height: 72px; border-radius: 22px; background: linear-gradient(135deg, #2563eb, #4f46e5); display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 800; color: #ffffff; box-shadow: 0 16px 36px rgba(37,99,235,0.4); animation: vivoPulse 2s infinite ease-in-out; border: 1px solid rgba(255,255,255,0.15);">
+          ₹
+        </div>
+        <div style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin-top: 18px;">AuraSpend</div>
+        <div style="font-size: 11px; font-weight: 600; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px;">Vivo X300 Pro Edition</div>
+        <div style="font-size: 12px; color: #64748b; margin-top: 8px;">Loading secure ledger & PIN engine...</div>
+        
+        <div id="auraspend-reload-action" style="display: none; margin-top: 24px;">
+          <button onclick="window.location.reload(true)" style="background: #2563eb; color: #ffffff; border: 1px solid #3b82f6; padding: 10px 22px; border-radius: 14px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">
+            Reload Application
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Capture PWA install prompt immediately to never miss it
+      window.__auraspend_deferred_prompt__ = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.__auraspend_deferred_prompt__ = e;
+        try { window.dispatchEvent(new CustomEvent('pwa:installable')); } catch(err) {}
+      });
+
+      // If scripts take long or network hiccup occurs, show a reload button
+      setTimeout(function() {
+        if (!window.__auraspend_mounted__) {
+          var action = document.getElementById('auraspend-reload-action');
+          if (action) action.style.display = 'block';
+        }
+      }, 3500);
+
+      // Register service worker with auto-cleanup
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch((err) => {
+            console.warn('SW registration fallback:', err);
+          });
+        });
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
