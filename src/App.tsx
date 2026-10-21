@@ -192,6 +192,24 @@ export default function App() {
     showToast('Transaction removed from ledger.', 'info');
   };
 
+  const handleDeleteMultipleTransactions = (ids: string[]) => {
+    const res = StorageService.deleteTransactions(ids);
+    refreshAllData();
+    showToast(`Removed ${res.count} transaction${res.count === 1 ? '' : 's'} from ledger.`, 'info');
+  };
+
+  const handleDeleteRangeTransactions = (startDate: string, endDate: string) => {
+    const res = StorageService.deleteTransactionsByDateRange(startDate, endDate);
+    refreshAllData();
+    showToast(`Removed ${res.count} transaction${res.count === 1 ? '' : 's'} in selected date range.`, 'info');
+  };
+
+  const handleDeleteAllTransactions = () => {
+    const res = StorageService.deleteAllTransactions();
+    refreshAllData();
+    showToast(`All ${res.count} transactions have been permanently cleared.`, 'alert');
+  };
+
   const handleSaveBudget = (updatedBudget: CategoryBudget) => {
     const current = StorageService.getBudgets();
     const idx = current.findIndex((b) => b.id === updatedBudget.id);
@@ -289,6 +307,9 @@ export default function App() {
                   transactions={transactions}
                   accounts={accounts}
                   onDeleteTransaction={handleDeleteTransaction}
+                  onDeleteMultipleTransactions={handleDeleteMultipleTransactions}
+                  onDeleteRangeTransactions={handleDeleteRangeTransactions}
+                  onDeleteAllTransactions={handleDeleteAllTransactions}
                   onOpenAddModal={() => setIsAddModalOpen(true)}
                 />
               )}

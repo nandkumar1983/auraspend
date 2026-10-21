@@ -19,6 +19,7 @@ import {
   Landmark,
   ShieldCheck,
   ChevronRight,
+  Check,
 } from 'lucide-react';
 import { BankAccount, Transaction } from '../types/expense';
 import { CATEGORIES, formatCurrency, formatDateShort } from '../utils/formatters';
@@ -27,6 +28,9 @@ interface TransactionItemProps {
   transaction: Transaction;
   account?: BankAccount;
   onDelete?: (id: string) => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 const CATEGORY_ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
@@ -49,6 +53,9 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   transaction,
   account,
   onDelete,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -61,14 +68,40 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
 
   const isDebit = transaction.type === 'debit';
 
+  const handleClick = () => {
+    if (isSelectionMode && onToggleSelect) {
+      onToggleSelect(transaction.id);
+    } else {
+      setIsExpanded(!isExpanded);
+    }
+  };
+
   return (
-    <div className="bg-slate-900/70 hover:bg-slate-900 border border-slate-800/80 rounded-2xl transition-all overflow-hidden">
+    <div
+      className={`border rounded-2xl transition-all overflow-hidden ${
+        isSelected
+          ? 'bg-blue-950/40 border-blue-500/60 shadow-sm shadow-blue-950/50'
+          : 'bg-slate-900/70 hover:bg-slate-900 border-slate-800/80'
+      }`}
+    >
       <div
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={handleClick}
         className="flex items-center justify-between p-3 cursor-pointer select-none"
       >
-        {/* Left Category Icon */}
+        {/* Left Category Icon & Checkbox */}
         <div className="flex items-center gap-3 min-w-0">
+          {isSelectionMode && (
+            <div
+              className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 transition-colors ${
+                isSelected
+                  ? 'bg-blue-600 border-blue-500 text-white'
+                  : 'bg-slate-950 border-slate-700 text-transparent'
+              }`}
+            >
+              <Check className="w-3.5 h-3.5 stroke-[3]" />
+            </div>
+          )}
+
           <div
             className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm"
             style={{
@@ -112,16 +145,18 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
                 : 'Manual'}
             </span>
           </div>
-          <ChevronRight
-            className={`w-3.5 h-3.5 text-slate-500 transition-transform ${
-              isExpanded ? 'rotate-90' : ''
-            }`}
-          />
+          {!isSelectionMode && (
+            <ChevronRight
+              className={`w-3.5 h-3.5 text-slate-500 transition-transform ${
+                isExpanded ? 'rotate-90' : ''
+              }`}
+            />
+          )}
         </div>
       </div>
 
       {/* Expandable Details Drawer */}
-      {isExpanded && (
+      {!isSelectionMode && isExpanded && (
         <div className="px-3 pb-3 pt-1 border-t border-slate-800/60 bg-slate-950/40 text-xs space-y-2">
           <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400 pt-1">
             <div className="flex items-center gap-1">

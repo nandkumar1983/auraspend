@@ -1,13 +1,30 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Download, Filter, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import {
+  Search,
+  Download,
+  Filter,
+  ArrowDownRight,
+  ArrowUpRight,
+  Trash2,
+  CheckSquare,
+  Square,
+  AlertTriangle,
+  Calendar,
+  X,
+  Check,
+} from 'lucide-react';
 import { BankAccount, Transaction, TransactionType } from '../types/expense';
 import { TransactionItem } from '../components/TransactionItem';
+import { DeleteTransactionsModal } from '../components/DeleteTransactionsModal';
 import { formatCurrency, formatDateFull } from '../utils/formatters';
 
 interface TransactionsViewProps {
   transactions: Transaction[];
   accounts: BankAccount[];
   onDeleteTransaction: (id: string) => void;
+  onDeleteMultipleTransactions?: (ids: string[]) => void;
+  onDeleteRangeTransactions?: (startDate: string, endDate: string) => void;
+  onDeleteAllTransactions?: () => void;
   onOpenAddModal: () => void;
 }
 
@@ -15,11 +32,22 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   transactions,
   accounts,
   onDeleteTransaction,
+  onDeleteMultipleTransactions,
+  onDeleteRangeTransactions,
+  onDeleteAllTransactions,
   onOpenAddModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'debit' | 'credit'>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
+
+  // Multi-selection state
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
+  const [isConfirmingSelectedDelete, setIsConfirmingSelectedDelete] = useState(false);
+
+  // Range and All Delete Modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
@@ -81,8 +109,41 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
     .filter((t) => t.type === 'credit')
     .reduce((s, t) => s + t.amount, 0);
 
+  // Multi-selection handlers
+  const handleToggleSelect = (id: string) => {
+    const next = new Set(selectedTxIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedTxIds(next);
+  };
+
+  const handleSelectAllFiltered = () => {
+    if (selectedTxIds.size === filteredTransactions.length && filteredTransactions.length > 0) {
+      setSelectedTxIds(new Set());
+    } else {
+      const all = new Set<string>();
+      filteredTransactions.forEach((t) => all.add(t.id));
+      setSelectedTxIds(all);
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedTxIds.size === 0) return;
+    if (onDeleteMultipleTransactions) {
+      onDeleteMultipleTransactions(Array.from(selectedTxIds));
+    } else {
+      selectedTxIds.forEach((id) => onDeleteTransaction(id));
+    }
+    setSelectedTxIds(new Set());
+    setIsConfirmingSelectedDelete(false);
+    setIsSelectionMode(false);
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 no-scrollbar">
+    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 no-scrollbar relative pb-16">
       {/* Search Bar */}
       <div className="relative">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -103,12 +164,12 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
         )}
       </div>
 
-      {/* Filter Tabs & Export */}
-      <div className="flex items-center justify-between gap-2">
+      {/* Filter Tabs & Management Buttons */}
+      <div className="flex items-center justify-between gap-1.5 flex-wrap">
         <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
           <button
             onClick={() => setTypeFilter('all')}
-            className={`px-3 py-1 rounded-lg font-medium transition-all ${
+            className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
               typeFilter === 'all'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
@@ -118,7 +179,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           </button>
           <button
             onClick={() => setTypeFilter('debit')}
-            className={`px-3 py-1 rounded-lg font-medium transition-all ${
+            className={`px-2 py-1 rounded-lg font-medium transition-all ${
               typeFilter === 'debit'
                 ? 'bg-rose-500/20 text-rose-300 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
@@ -128,7 +189,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           </button>
           <button
             onClick={() => setTypeFilter('credit')}
-            className={`px-3 py-1 rounded-lg font-medium transition-all ${
+            className={`px-2 py-1 rounded-lg font-medium transition-all ${
               typeFilter === 'credit'
                 ? 'bg-blue-600/20 text-blue-300 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
@@ -138,14 +199,45 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           </button>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center gap-1 text-xs shrink-0"
-          title="Export CSV"
-        >
-          <Download className="w-3.5 h-3.5 text-blue-400" />
-          <span className="hidden xs:inline">CSV</span>
-        </button>
+        {/* Action Controls: Multi-Select, Range/All Delete, CSV Export */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => {
+              setIsSelectionMode(!isSelectionMode);
+              if (isSelectionMode) {
+                setSelectedTxIds(new Set());
+                setIsConfirmingSelectedDelete(false);
+              }
+            }}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all ${
+              isSelectionMode
+                ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
+                : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
+            }`}
+            title="Multi-select transactions"
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+            <span>{isSelectionMode ? 'Cancel' : 'Select'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="p-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-300 hover:text-rose-200 transition-colors flex items-center gap-1 text-xs"
+            title="Delete Selected Range or All Transactions"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden xs:inline">Delete</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center gap-1 text-xs"
+            title="Export CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden xs:inline">CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Account Filter & Subtotal Summary */}
@@ -212,6 +304,9 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                         transaction={tx}
                         account={acc}
                         onDelete={onDeleteTransaction}
+                        isSelectionMode={isSelectionMode}
+                        isSelected={selectedTxIds.has(tx.id)}
+                        onToggleSelect={handleToggleSelect}
                       />
                     );
                   })}
@@ -221,6 +316,89 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
           })}
         </div>
       )}
+
+      {/* Multi-Select Floating Action Bar */}
+      {isSelectionMode && (
+        <div className="fixed bottom-16 left-4 right-4 z-40 max-w-md mx-auto transition-all animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div className="p-3 rounded-2xl bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-md flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSelectAllFiltered}
+                className="text-sky-400 hover:text-sky-300 font-semibold underline text-xs"
+              >
+                {selectedTxIds.size === filteredTransactions.length && filteredTransactions.length > 0
+                  ? 'Deselect All'
+                  : `Select All (${filteredTransactions.length})`}
+              </button>
+              <span className="text-slate-400 font-mono text-[11px]">
+                ({selectedTxIds.size} selected)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {isConfirmingSelectedDelete ? (
+                <div className="flex items-center gap-1 bg-rose-950/80 p-1 rounded-xl border border-rose-600">
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelected}
+                    className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
+                  >
+                    Confirm Delete ({selectedTxIds.size})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingSelectedDelete(false)}
+                    className="px-2 py-1 text-slate-300 hover:text-white text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={selectedTxIds.size === 0}
+                  onClick={() => setIsConfirmingSelectedDelete(true)}
+                  className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/60 disabled:opacity-40"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete ({selectedTxIds.size})</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSelectionMode(false);
+                  setSelectedTxIds(new Set());
+                  setIsConfirmingSelectedDelete(false);
+                }}
+                className="w-7 h-7 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Transactions Range / All Modal */}
+      <DeleteTransactionsModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        transactions={transactions}
+        accounts={accounts}
+        onDeleteRange={(start, end) => {
+          if (onDeleteRangeTransactions) {
+            onDeleteRangeTransactions(start, end);
+          }
+        }}
+        onDeleteAll={() => {
+          if (onDeleteAllTransactions) {
+            onDeleteAllTransactions();
+          }
+        }}
+      />
     </div>
   );
 };

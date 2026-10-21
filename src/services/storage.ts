@@ -198,31 +198,55 @@ export class StorageService {
   }
 
   static deleteTransaction(id: string): void {
-    const transactions = this.getTransactions();
-    const tx = transactions.find((t) => t.id === id);
-    if (!tx) return;
+    this.deleteTransactions([id]);
+  }
 
-    // Reverse account balance effect
+  static deleteTransactions(ids: string[]): { count: number } {
+    if (!ids || ids.length === 0) return { count: 0 };
+    const idSet = new Set(ids);
+    const transactions = this.getTransactions();
+    const toDelete = transactions.filter((t) => idSet.has(t.id));
+    if (toDelete.length === 0) return { count: 0 };
+
+    // Reverse account balances for each deleted transaction
     const accounts = this.getAccounts();
-    const accountIndex = accounts.findIndex((a) => a.id === tx.accountId);
-    if (accountIndex !== -1) {
-      const acc = accounts[accountIndex];
-      if (tx.type === 'debit') {
-        acc.balance += tx.amount;
-        if (acc.availableLimit !== undefined) {
-          acc.availableLimit += tx.amount;
-        }
-      } else {
-        acc.balance -= tx.amount;
-        if (acc.availableLimit !== undefined) {
-          acc.availableLimit = Math.max(0, acc.availableLimit - tx.amount);
+    const accountMap = new Map(accounts.map((a) => [a.id, a]));
+
+    toDelete.forEach((tx) => {
+      const acc = accountMap.get(tx.accountId);
+      if (acc) {
+        if (tx.type === 'debit') {
+          acc.balance += tx.amount;
+          if (acc.availableLimit !== undefined) {
+            acc.availableLimit += tx.amount;
+          }
+        } else {
+          acc.balance -= tx.amount;
+          if (acc.availableLimit !== undefined) {
+            acc.availableLimit = Math.max(0, acc.availableLimit - tx.amount);
+          }
         }
       }
-      this.saveAccounts(accounts);
-    }
+    });
 
-    const filtered = transactions.filter((t) => t.id !== id);
-    this.saveTransactions(filtered);
+    this.saveAccounts(Array.from(accountMap.values()));
+    const remaining = transactions.filter((t) => !idSet.has(t.id));
+    this.saveTransactions(remaining);
+    return { count: toDelete.length };
+  }
+
+  static deleteTransactionsByDateRange(startDate: string, endDate: string): { count: number } {
+    const transactions = this.getTransactions();
+    const matchingIds = transactions
+      .filter((t) => (!startDate || t.date >= startDate) && (!endDate || t.date <= endDate))
+      .map((t) => t.id);
+    return this.deleteTransactions(matchingIds);
+  }
+
+  static deleteAllTransactions(): { count: number } {
+    const transactions = this.getTransactions();
+    const allIds = transactions.map((t) => t.id);
+    return this.deleteTransactions(allIds);
   }
 
   static getMonthlyReport(monthStr: string): MonthlyReport {
